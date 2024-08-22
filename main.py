@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 
+#valentao seu botafogo vai cair!!!
 
 # Função para converter texto em bits ASCII
 def text_to_bits(text):
