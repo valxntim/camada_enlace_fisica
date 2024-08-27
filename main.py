@@ -1,3 +1,5 @@
+import socket
+
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
@@ -128,110 +130,121 @@ def banda_base_8qam(simbolos_modulados):
 
     return forma_onda
 
-# Entrada do usuário
-input_type = st.selectbox("Escolha o tipo de entrada", ["Bits", "Texto"])
-if input_type == "Bits":
-    bits = st.text_input("Digite os bits (ex: 10110011):")
-else:
-    text = st.text_input("Digite o texto:")
-    if text:
-        ascii_bits = text_to_bits(text)
-        bits = ''.join(ascii_bits)
-        st.write("Vetor ASCII de cada letra:")
-        for i, char_bits in enumerate(ascii_bits):
-            st.write(f"{text[i]}: {char_bits}")
+# Streamlit UI setup
+st.title("Modulação e Envio de Mensagens")
+
+# Persistent connection setup
+if 'client_socket' not in st.session_state:
+    st.session_state.client_socket = None
+
+# Input for nickname and message
+nickname = st.text_input("Digite seu apelido:")
+text = st.text_input("Digite o texto:")
+
+if st.button("Conectar ao servidor"):
+    if not st.session_state.client_socket:
+        try:
+            st.session_state.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            st.session_state.client_socket.connect(('192.168.15.166', 5060))  # Replace with your server IP and port if needed
+            st.success("Conectado ao servidor com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao conectar ao servidor: {e}")
+
+if st.button("Enviar apelido"):
+    if not nickname:
+        st.warning("Por favor, insira um apelido.")
+    elif st.session_state.client_socket:
+        try:
+            st.session_state.client_socket.send(nickname.encode('ascii'))
+            st.success("Apelido enviado com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao enviar o apelido para o servidor: {e}")
     else:
-        bits = ""
+        st.error("Você deve se conectar ao servidor primeiro.")
 
-# Seleção do tipo de modulação
-modulation_type = st.selectbox("Escolha o tipo de modulação", ["Digital", "Portadora"])
-
-# Seleção da técnica de modulação específica
-if modulation_type == "Digital":
-    modulation_scheme = st.selectbox("Escolha a técnica de modulação digital", ["NRZ-Polar", "Manchester", "Bipolar"])
-else:
-    modulation_scheme = st.selectbox("Escolha a técnica de modulação por portadora", ["ASK", "FSK" , "8-QAM"])
-
-if st.button("Modular"):
-    if bits:  # Se o usuário digitou algum valor
-        # Frequência do clock ajustada para ter transições claras
-        freq = 1  # Frequência do clock ajustada para 1 Hz ou seja em 1 segundo teremos uma transição de 0 para 1 ou 1 para 0, período igual a 1 segundo
-        t = np.linspace(0, len(bits), len(bits) * 100)  # Gerando o tempo para o sinal, ou seja ele vai de 0 ao tamanho do sinal ou seja se eu tenho 5 bits ele vai de 0 a 5 segundos e criamos 100 pontos para cada um deles igualmente espaçados
-        clock = 0.5 * (1 + np.sign(np.sin(2 * np.pi * freq * t)))
-        
-        # Gerar sinal portadora
-        carrier_freq = freq  # Frequência da portadora igual à do clock
-        carrier = np.sin(2 * np.pi * carrier_freq * t)
-
-        fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-
-        # Plotando a entrada
-        axs[0].plot(t, np.repeat(list(map(int, bits)), 100), drawstyle='steps-pre')
-        axs[0].set(title="Entrada", ylabel="Bit")
-        axs[0].grid(True)
-        axs[0].legend(["Entrada"])
-
-        # Plotando o clock
-        axs[1].plot(t, clock, drawstyle='steps-pre')
-        axs[1].set(title="Clock", ylabel="Amplitude")
-        axs[1].grid(True)
-        axs[1].legend(["Clock"])
-
-        # Modulação digital
-        if modulation_type == "Digital":
-            if modulation_scheme == "NRZ-Polar":
-                signal = nrz_polar(bits)  # Sinal que o usuário digitou vai ser convertido para NRZ-Polar
-                signal_expanded = np.repeat(signal, 100)
-                axs[2].plot(t, signal_expanded, drawstyle='steps-pre')
-                axs[2].set(title="NRZ-Polar Modulation", xlabel="Tempo", ylabel="Amplitude")
-                axs[2].legend(["NRZ-Polar"])
-
-            elif modulation_scheme == "Manchester":
-                manchester_signal = manchester(bits, clock)
-                axs[2].plot(t, manchester_signal, drawstyle='steps-pre')
-                axs[2].set(title="Manchester Encoding", xlabel="Tempo", ylabel="Amplitude")
-                axs[2].legend(["Manchester"])
-
-            elif modulation_scheme == "Bipolar":
-                signal_bipolar = bipolar(bits)  # Sinal que o usuário digitou vai ser convertido para Bipolar
-                signal_expanded_bipolar = np.repeat(signal_bipolar, 100)
-                axs[2].plot(t, signal_expanded_bipolar, drawstyle='steps-pre')
-                axs[2].set(title="Bipolar Modulation", xlabel="Tempo", ylabel="Amplitude")
-                axs[2].legend(["Bipolar"])
-
-        # Modulação por portadora
-        else:
-            signal = nrz_polar(bits)  # Sinal que o usuário digitou vai ser convertido para NRZ-Polar
-
-            if modulation_scheme == "ASK":
-                ask_signal = ask_modulation(signal, carrier)
-                axs[2].plot(t, ask_signal, drawstyle='steps-pre')
-                axs[2].set(title="ASK Modulated Signal", xlabel="Tempo", ylabel="Amplitude")
-                axs[2].legend(["ASK"])
-
-            elif modulation_scheme == "FSK":
-                fsk_signal = fsk_modulation(signal, t, carrier_freq)
-                axs[2].plot(t, fsk_signal, drawstyle='steps-pre')
-                axs[2].set(title="FSK Modulated Signal", xlabel="Tempo", ylabel="Amplitude")
-                axs[2].legend(["FSK"])
-
-            elif modulation_scheme == "8-QAM":
-                # Converte os bits para 8QAM
-                qam_signal = modulacao([int(bit) for bit in bits])
-                
-                # Cria o vetor de tempo para plotar o sinal
-                tempo = np.linspace(0, len(bits), len(qam_signal))
-                
-                # Plota a parte real do sinal 8QAM
-                axs[2].plot(tempo, np.real(qam_signal), drawstyle='steps-pre', label='Parte Real')
-                
-                # Plota a parte imaginária do sinal 8QAM
-                axs[2].plot(tempo, np.imag(qam_signal), drawstyle='steps-pre', linestyle='--', label='Parte Imaginária')
-                
-                axs[2].set(title="8QAM Modulated Signal", xlabel="Tempo", ylabel="Amplitude")
-                axs[2].legend(["Parte Real", "Parte Imaginária"])
-                
-        axs[2].grid(True)
-        st.pyplot(fig)
+if st.button("Enviar mensagem"):
+    if not text:
+        st.warning("Por favor, insira um texto.")
+    elif st.session_state.client_socket:
+        try:
+            st.session_state.client_socket.send(text.encode('ascii'))
+            st.success("Mensagem enviada com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao enviar a mensagem para o servidor: {e}")
     else:
-        st.warning("Por favor, insira uma sequência de bits ou um texto.")
+        st.error("Você deve se conectar ao servidor primeiro.")
+
+if text:
+    ascii_bits = text_to_bits(text)
+    st.write("Vetor ASCII de cada letra:")
+    for i, char_bits in enumerate(ascii_bits):
+        st.write(f"{text[i]}: {char_bits}")
+
+    bits = ''.join(ascii_bits)
+
+    modulation_type = st.selectbox("Escolha o tipo de modulação", ["Digital", "Portadora"])
+
+    if modulation_type == "Digital":
+        modulation_scheme = st.selectbox("Escolha a técnica de modulação digital", ["NRZ-Polar", "Manchester", "Bipolar"])
+    else:
+        modulation_scheme = st.selectbox("Escolha a técnica de modulação por portadora", ["ASK", "FSK"])
+
+    if st.button("Modular"):
+        if bits:
+            freq = 1
+            t = np.linspace(0, len(bits), len(bits) * 100)
+            clock = 0.5 * (1 + np.sign(np.sin(2 * np.pi * freq * t)))
+
+            carrier_freq = freq
+            carrier = np.sin(2 * np.pi * carrier_freq * t)
+
+            fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+
+            axs[0].plot(t, np.repeat(list(map(int, bits)), 100), drawstyle='steps-pre')
+            axs[0].set(title="Entrada", ylabel="Bit")
+            axs[0].grid(True)
+            axs[0].legend(["Entrada"])
+
+            axs[1].plot(t, clock, drawstyle='steps-pre')
+            axs[1].set(title="Clock", ylabel="Amplitude")
+            axs[1].grid(True)
+            axs[1].legend(["Clock"])
+
+            if modulation_type == "Digital":
+                if modulation_scheme == "NRZ-Polar":
+                    signal = nrz_polar(bits)
+                    signal_expanded = np.repeat(signal, 100)
+                    axs[2].plot(t, signal_expanded, drawstyle='steps-pre')
+                    axs[2].set(title="NRZ-Polar Modulation", xlabel="Tempo", ylabel="Amplitude")
+                    axs[2].legend(["NRZ-Polar"])
+
+                elif modulation_scheme == "Manchester":
+                    manchester_signal = manchester(bits, clock)
+                    axs[2].plot(t, manchester_signal, drawstyle='steps-pre')
+                    axs[2].set(title="Manchester Encoding", xlabel="Tempo", ylabel="Amplitude")
+                    axs[2].legend(["Manchester"])
+
+                elif modulation_scheme == "Bipolar":
+                    signal_bipolar = bipolar(bits)
+                    signal_expanded_bipolar = np.repeat(signal_bipolar, 100)
+                    axs[2].plot(t, signal_expanded_bipolar, drawstyle='steps-pre')
+                    axs[2].set(title="Bipolar Modulation", xlabel="Tempo", ylabel="Amplitude")
+                    axs[2].legend(["Bipolar"])
+
+            else:
+                signal = nrz_polar(bits)
+
+                if modulation_scheme == "ASK":
+                    ask_signal = ask_modulation(signal, carrier)
+                    axs[2].plot(t, ask_signal, drawstyle='steps-pre')
+                    axs[2].set(title="ASK Modulated Signal", xlabel="Tempo", ylabel="Amplitude")
+                    axs[2].legend(["ASK"])
+
+                elif modulation_scheme == "FSK":
+                    fsk_signal = fsk_modulation(signal, t, carrier_freq)
+                    axs[2].plot(t, fsk_signal, drawstyle='steps-pre')
+                    axs[2].set(title="FSK Modulated Signal", xlabel="Tempo", ylabel="Amplitude")
+                    axs[2].legend(["FSK"])
+
+            axs[2].grid(True)
+            st.pyplot(fig)
