@@ -3,7 +3,7 @@ import numpy as np
 import streamlit as st
 #pip install streamlit
 
-# Função para converter texto em bits ASCII
+# Função alulol gayyy para converter texto em bits ASCII
 def text_to_bits(text):
     # Converte cada caractere do texto em sua representação binária de 8 bits
     bits = [format(ord(char), '08b') for char in text]
@@ -72,7 +72,7 @@ st.title("Modulação NRZ-Polar, Manchester, Bipolar, Portadora, ASK , FSK e 8-Q
 def modulacao(bits):
     constelacao = {
         (0, 0, 0): complex(-1, -1), #0
-            (0, 0, 1): complex(-1, 1),  #1  
+            (0, 0, 1): complex(-1, 1),  #1
             (0, 1, 0): complex(1, -1),  #2
             (0, 1, 1): complex(1, 1), #3
             (1, 0, 0): complex(-1, -3), #4
@@ -230,10 +230,7 @@ if st.button("Modular"):
                 
                 axs[2].set(title="8QAM Modulated Signal", xlabel="Tempo", ylabel="Amplitude")
                 axs[2].legend(["Parte Real", "Parte Imaginária"])
-
-
-
-
+                
         axs[2].grid(True)
         st.pyplot(fig)
     else:
