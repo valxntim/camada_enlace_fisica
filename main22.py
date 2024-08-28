@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 
-
 # Function to convert text to ASCII bits
 def text_to_bits(text):
     return [format(ord(char), '08b') for char in text]
