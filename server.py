@@ -1,54 +1,76 @@
 import socket
 import threading
 
-PORT  = 5060
-SERVER = socket.gethostbyname(socket.gethostname())
+PORT = 5060
+SERVER = socket.gethostbyname(socket.gethostname())  # Local host
 ADDR = (SERVER, PORT)
 FORMAT = 'ascii'
-DISCONNECT_MESSAGE = "!DISCONNECT"
 
-#print(SERVER)
-server=  socket.socket(socket.AF_INET, socket.SOCK_STREAM) # cria o Socket e define o tipo de conexão nesse caso IPV4
-server.bind(ADDR) # associa o socket a uma porta
-server.listen() # aguarda conexões
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(ADDR)
+server.listen()
+
 clients = []
 nicknames = []
 
-def transmicao(mensagem):
+def broadcast(message):
     for client in clients:
-        client.send(mensagem)
-
-def tratando_cliente(user):
-    print(f"[NOVO USUÁRIO] {user} conectada.")
-    while True:
         try:
-            msg = user.recv(1024).decode(FORMAT) # recebe a mensagem do cliente
-            transmicao(msg)
+            client.send(message)
         except:
-            index = clients.index(user)
-            clients.remove(user)
-            user.close()
-            nickname = nicknames[index]
-            transmicao(f"{nickname} saiu do chat!".encode(FORMAT))
-            nicknames.remove(nickname)
-            break
+            print(f"Error sending message to client: {client}")
+            remove_client(client)
 
-
-def iniciar():
-    while True:
-        user, endereco = server.accept() # aguarda conexões
-        print(f"[NOVA CONEXÃO] {endereco} conectada.")
-        user.send("NICK".encode(FORMAT))
-        nickname = user.recv(1024).decode(FORMAT)
+def handle_client(client):
+    try:
+        # Receive nickname
+        nickname = client.recv(1024).decode(FORMAT)
+        if not nickname:
+            raise Exception("Failed to receive nickname")
         nicknames.append(nickname)
-        clients.append(user)
-        print(f'Nickname é: {nickname}')
-        transmicao(f"{nickname} entrou no chat!".encode(FORMAT))
-        user.send("Conectado ao servidor!".encode(FORMAT))
+        clients.append(client)
+        print(f"[NEW CONNECTION] {client.getpeername()} connected.")
+        print(f"Nickname is {nickname}")
+        broadcast(f"{nickname} joined the chat!".encode(FORMAT))
 
-        thread = threading.Thread(target=tratando_cliente, args=(user,)) #Quando a user é realizada cria uma thread para tratar a conexão entrand na função tratando_cliente e passando o endereço do cliente
+        # Send acknowledgment
+        client.send("Connected to the server!".encode(FORMAT))
+
+        while True:
+            try:
+                # Receive and process the signal
+                message = client.recv(1024).decode(FORMAT)
+                if message:
+                    signal = list(map(int, message.split(',')))  # Convert back to list of integers
+                    print(f"Signal received: {signal}")
+                    # Further processing...
+                else:
+                    break
+            except Exception as e:
+                print(f"Error handling client: {e}")
+                break
+    finally:
+        remove_client(client)
+
+
+def remove_client(client):
+    if client in clients:
+        index = clients.index(client)
+        clients.remove(client)
+        client.close()
+        nickname = nicknames[index]
+        broadcast(f"{nickname} left the chat!".encode(FORMAT))
+        nicknames.remove(nickname)
+        print(f"[DISCONNECTED] {nickname} disconnected.")
+
+def start():
+    print(f"[STARTING] Server is starting on {SERVER}:{PORT}...")
+    while True:
+        client, address = server.accept()
+        print(f"[NEW CONNECTION] {address} connected.")
+        
+        thread = threading.Thread(target=handle_client, args=(client,))
         thread.start()
-        print(f"[CONEXÕES ATIVAS] {threading.active_count() - 1}")
+        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
-print("[INICIANDO] Servidor está iniciando...")
-iniciar()
+start()

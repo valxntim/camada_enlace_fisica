@@ -3,7 +3,7 @@ import socket
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
-#pip install streamlit
+
 
 # Função alulol gayyy para converter texto em bits ASCII
 def text_to_bits(text):
@@ -73,14 +73,14 @@ st.title("Modulação NRZ-Polar, Manchester, Bipolar, Portadora, ASK , FSK e 8-Q
 
 def modulacao(bits):
     constelacao = {
-        (0, 0, 0): complex(-1, -1), #0
+            (0, 0, 0): complex(-1, -1), #0
             (0, 0, 1): complex(-1, 1),  #1
             (0, 1, 0): complex(1, -1),  #2
-            (0, 1, 1): complex(1, 1), #3
+            (0, 1, 1): complex(1, 1),   #3
             (1, 0, 0): complex(-1, -3), #4
-            (1, 0, 1): complex(-1, 3), #5
-            (1, 1, 0): complex(1, -3), #6
-            (1, 1, 1): complex(1, 3) #7
+            (1, 0, 1): complex(-1, 3),  #5
+            (1, 1, 0): complex(1, -3),  #6
+            (1, 1, 1): complex(1, 3)    #7
             }
 
     bits = np.append(bits, [0] * (3 - len(bits) % 3) if len(bits) % 3 != 0 else [])
