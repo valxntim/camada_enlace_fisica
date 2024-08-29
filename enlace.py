@@ -1,8 +1,7 @@
 import streamlit as st
 import zlib
 
-# inserção de bytes 
-
+# Inserção de bytes
 def byte_stuffing(bits):
     FLAG = "01111110"
     stuffed_bits = ""
@@ -59,13 +58,33 @@ def character_count_decoding(frame):
     return frame[1:length]
 
 def bin_to_bytes(binary_str):
-    # Pad binary string to be multiple of 8 bits sdassadsasd
+    # Pad binary string to be multiple of 8 bits
     padded_binary_str = binary_str.zfill(((len(binary_str) + 7) // 8) * 8)
     byte_list = [padded_binary_str[i:i+8] for i in range(0, len(padded_binary_str), 8)]
     return bytes([int(b, 2) for b in byte_list])
 
 def bytes_to_bin(byte_data):
     return ''.join(format(byte, '08b') for byte in byte_data)
+
+def bitlist_to_string(bitlist):
+    return ''.join(str(bit) for bit in bitlist)
+
+def bytes_to_bitlist(data):
+    bitlist = []
+    for byte in data:
+        for i in range(8):
+            bitlist.append((byte >> (7-i)) & 1)
+    return bitlist
+
+def bitlist_to_bytes(bitlist):
+    byte_array = bytearray()
+    for i in range(0, len(bitlist), 8):
+        byte = 0
+        for bit in bitlist[i:i+8]:
+            byte = (byte << 1) | bit
+        byte_array.append(byte)
+    return bytes(byte_array)
+
 
 def calculate_crc32(data):
     """Calcula o CRC-32 dos dados."""
@@ -104,43 +123,60 @@ def verify_parity_bits(data_with_parity):
     return True
 
 def hamming_encode(data):
-    """Codifica os dados usando o código de Hamming (7,4)."""
-    encoded_data = []
-    for byte in data:
-        bits = format(byte, '08b')
-        d = [int(bit) for bit in bits]
-        p1 = d[0] + d[1] + d[3] + d[4] + d[6]
-        p2 = d[0] + d[2] + d[3] + d[5] + d[6]
-        p4 = d[1] + d[2] + d[3]
-        p8 = d[4] + d[5] + d[6] + d[7]
-    encoded_bits = [p1, p2, d[0], p4, d[1], d[2], d[3], p8, d[4], d[5], d[6], d[7]]
-    encoded_data.extend(encoded_bits)
-    print(encoded_bits)
-    return encoded_data
+    print("TIPO do enconde :" , type(data))
+    print("DATA do encode :" ,data)
+    bits = list(''.join(format(byte, '08b') for byte in data))
+    tam = len(bits)
+    paridade_positions = [2**i for i in range(len(bits).bit_length())]
 
+    # Inserir bits de paridade nas posições apropriadas
+    for pos in reversed(paridade_positions):
+        bits.insert(pos - 1, '0')  # Inicialmente, os bits de paridade são 0
 
-        
-def hamming_decode(encoded_bits):
-    """Decodifica os dados usando o código de Hamming (7,4)."""
-    decoded_data = ""
-    for i in range(0, len(encoded_bits), 12):
-        bits = encoded_bits[i:i+12]
-        b = [int(bit) for bit in bits]
-        p1 = b[0]
-        p2 = b[1]
-        p4 = b[3]
-        p8 = b[7]
-        d = b[2:4] + b[5:7] + b[8:12]
-        s1 = p1 ^ b[2] ^ b[4] ^ b[6] ^ b[8]
-        s2 = p2 ^ b[2] ^ b[5] ^ b[6] ^ b[9]
-        s4 = p4 ^ b[4] ^ b[5] ^ b[6] ^ b[10]
-        s8 = p8 ^ b[8] ^ b[9] ^ b[10] ^ b[11]
-        error_position = s1 * 1 + s2 * 2 + s4 * 4 + s8 * 8
-        if error_position != 0:
-            print(f"Error detected at position {error_position}")
-            b[error_position - 1] ^= 1  # Corrige o erro
-        decoded_data += ''.join(map(str, b[2:4] + b[5:7] + b[8:12]))
-    return decoded_data
+    # Calcula os valores dos bits de paridade
+    for pos in paridade_positions:
+        paridade = 0
+        for i in range(1, len(bits) + 1):
+            if i & pos:
+                paridade ^= int(bits[i - 1])
+        bits[pos - 1] = str(paridade)
+
+    # Converte a lista de bits de volta para bytes
+    bit_string = ''.join(bits)
+    return bin_to_bytes(bit_string)
+
+def hamming_decode(data):
+    # bytes - > lista
+    #lista - > string
+    #string - > bits
+    data = bytes_to_bitlist(data)
+    print("TIPO :" , type(data))
+    print("DATA :" ,data)
+    bits = list(bytes_to_bin(data))
+    tam = len(bits)
+    paridade_positions = [2**i for i in range(len(bits).bit_length())]
+
+    erro_posicao = 0
+    for pos in paridade_positions:
+        paridade = 0
+        for i in range(1, len(bits) + 1):
+            if i & pos:
+                paridade ^= int(bits[i - 1])
+        if paridade != 0:
+            erro_posicao += pos
+
+    if erro_posicao > 0:
+        print(f"Erro detectado na posição {erro_posicao}. Corrigindo...")
+        bits[erro_posicao - 1] = '0' if bits[erro_posicao - 1] == '1' else '1'  # Corrige o bit com erro
+
+    # Remove os bits de paridade para recuperar a mensagem original
+    mensagem_original = [bits[i - 1] for i in range(1, tam + 1) if i not in paridade_positions]
+    
+    # Converte a lista de bits de volta para bytes
+    mensagem_original = bitlist_to_string(mensagem_original)
+    print("Converteu pra string?" , type(mensagem_original))
+    bit_string = ''.join(mensagem_original)
+    return bin_to_bytes(bit_string)
 
 # Streamlit UI
 st.title('Byte Processing Tool')
@@ -153,13 +189,23 @@ method = st.selectbox("Choose a method", ["Inserção de Bytes", "Contagem de Ca
 
 if st.button("Process"):
     try:
-        if method == "Inserção de Bytes":
+        if method == "Parity":
+            data_bytes = bin_to_bytes(byte_input)
+            data_with_parity = add_parity_bits(data_bytes)
+            st.write("Data with Parity Bits (binary):", data_with_parity)
+            is_valid = verify_parity_bits(data_with_parity)
+            st.write("Parity Check Result:", "Valid" if is_valid else "Invalid")
+            print("Data with Parity Bits (binary):", data_with_parity)
+            print("Parity Check Result:", "Valid" if is_valid else "Invalid")
+            
+        elif method == "Inserção de Bytes":
             stuffed = byte_stuffing(byte_input)
             unstuffed = byte_unstuffing(stuffed)
             st.write("Stuffed Data (binary):", stuffed)
             st.write("Unstuffed Data (binary):", unstuffed)
             print("Stuffed Data (binary):", stuffed)
             print("Unstuffed Data (binary):", unstuffed)
+            
         elif method == "Contagem de Caracteres":
             data_bytes = bin_to_bytes(byte_input)
             encoded_frame = character_count_encoding(data_bytes)
@@ -168,14 +214,7 @@ if st.button("Process"):
             st.write("Decoded Data (binary):", bytes_to_bin(decoded_data))
             print("Encoded Frame (binary):", bytes_to_bin(encoded_frame))
             print("Decoded Data (binary):", bytes_to_bin(decoded_data))
-        elif method == "Paridade":
-            data_bytes = bin_to_bytes(byte_input)
-            data_with_parity = add_parity_bits(data_bytes)
-            st.write("Data with Parity Bits (binary):", data_with_parity)
-            is_valid = verify_parity_bits(data_with_parity)
-            st.write("Parity Check Result:", "Valid" if is_valid else "Invalid")
-            print("Data with Parity Bits (binary):", data_with_parity)
-            print("Parity Check Result:", "Valid" if is_valid else "Invalid")
+            
         elif method == "CRC-32":
             data_bytes = bin_to_bytes(byte_input)
             data_with_crc = add_crc32(data_bytes)
@@ -183,24 +222,24 @@ if st.button("Process"):
             is_valid = verify_crc32(data_with_crc)
             st.write("CRC Check Result:", "Valid" if is_valid else "Invalid")
             print("Data with CRC-32 (binary):", bytes_to_bin(data_with_crc))
-            print("CRC Check Result:", "Valid" if is_valid else "Invalid")
+            
         elif method == "Hamming":
             data_bytes = bin_to_bytes(byte_input)
             encoded_data = hamming_encode(data_bytes)
-            st.write("Encoded Data with Hamming (binary):", encoded_data)
+            st.write("Encoded Data with Hamming (binary):", bytes_to_bin(encoded_data))
             
-            decoded_data_bin = hamming_decode(encoded_data)
-            decoded_data = bin_to_bytes(decoded_data_bin)
+            decoded_data = hamming_decode(encoded_data)
+            decoded_data_bin_str = ''.join(format(byte, '08b') for byte in decoded_data)
             
             # Convert original data to binary string for comparison
             original_data_bin = ''.join(format(byte, '08b') for byte in data_bytes)
-            decoded_data_bin_str = ''.join(format(byte, '08b') for byte in decoded_data)
             
             st.write("Decoded Data (binary):", decoded_data_bin_str)
             st.write("Hamming Check Result:", "Valid" if original_data_bin == decoded_data_bin_str else "Invalid")
-            print("Encoded Data with Hamming (binary):", encoded_data)
+            print("Encoded Data with Hamming (binary):", bytes_to_bin(encoded_data))
             print("Decoded Data (binary):", decoded_data_bin_str)
             print("Hamming Check Result:", "Valid" if original_data_bin == decoded_data_bin_str else "Invalid")
+                       
     except Exception as e:
         st.error(f"An error occurred: {e}")
         print(f"An error occurred: {e}")
