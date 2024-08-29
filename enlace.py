@@ -1,6 +1,8 @@
 import streamlit as st
 import zlib
 
+# inserção de bytes 
+
 def byte_stuffing(bits):
     FLAG = "01111110"
     stuffed_bits = ""
@@ -57,7 +59,7 @@ def character_count_decoding(frame):
     return frame[1:length]
 
 def bin_to_bytes(binary_str):
-    # Pad binary string to be multiple of 8 bits
+    # Pad binary string to be multiple of 8 bits sdassadsasd
     padded_binary_str = binary_str.zfill(((len(binary_str) + 7) // 8) * 8)
     byte_list = [padded_binary_str[i:i+8] for i in range(0, len(padded_binary_str), 8)]
     return bytes([int(b, 2) for b in byte_list])
@@ -103,18 +105,21 @@ def verify_parity_bits(data_with_parity):
 
 def hamming_encode(data):
     """Codifica os dados usando o código de Hamming (7,4)."""
-    encoded_data = ""
+    encoded_data = []
     for byte in data:
         bits = format(byte, '08b')
         d = [int(bit) for bit in bits]
-        p1 = d[0] ^ d[1] ^ d[3] ^ d[4] ^ d[6]
-        p2 = d[0] ^ d[2] ^ d[3] ^ d[5] ^ d[6]
-        p4 = d[1] ^ d[2] ^ d[3]
-        p8 = d[4] ^ d[5] ^ d[6] ^ d[7]
-        encoded_bits = [p1, p2, d[0], p4, d[1], d[2], d[3], p8, d[4], d[5], d[6], d[7]]
-        encoded_data += ''.join(map(str, encoded_bits))
+        p1 = d[0] + d[1] + d[3] + d[4] + d[6]
+        p2 = d[0] + d[2] + d[3] + d[5] + d[6]
+        p4 = d[1] + d[2] + d[3]
+        p8 = d[4] + d[5] + d[6] + d[7]
+    encoded_bits = [p1, p2, d[0], p4, d[1], d[2], d[3], p8, d[4], d[5], d[6], d[7]]
+    encoded_data.extend(encoded_bits)
+    print(encoded_bits)
     return encoded_data
 
+
+        
 def hamming_decode(encoded_bits):
     """Decodifica os dados usando o código de Hamming (7,4)."""
     decoded_data = ""

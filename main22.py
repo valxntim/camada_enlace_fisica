@@ -1,8 +1,35 @@
 import socket
-
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
+
+# Initialize session state variables
+if 'digital_modulation' not in st.session_state:
+    st.session_state.digital_modulation = None
+
+if 'carrier_modulation' not in st.session_state:
+    st.session_state.carrier_modulation = None
+
+if 'modulation_scheme' not in st.session_state:
+    st.session_state.modulation_scheme = None
+
+if 'bits' not in st.session_state:
+    st.session_state.bits = None
+
+if 'client_socket' not in st.session_state:
+    st.session_state.client_socket = None
+
+# Convert the signal to a string
+def signal_to_string(signal):
+    return ','.join(map(str, signal))
+
+# Convert the signal to bytes
+def signal_to_bytes(signal):
+    return bytes(signal)
+
+# Function to store modulation scheme
+def set_modulation_scheme(selected_scheme):
+    st.session_state.modulation_scheme = selected_scheme
 
 # Function to convert text to ASCII bits
 def text_to_bits(text):
@@ -46,10 +73,6 @@ def fsk_modulation(nrz_signal, t, carrier_freq):
 # Streamlit UI setup
 st.title("Modulação e Envio de Mensagens")
 
-# Persistent connection setup
-if 'client_socket' not in st.session_state:
-    st.session_state.client_socket = None
-
 # Input for nickname and message
 nickname = st.text_input("Digite seu apelido:")
 text = st.text_input("Digite o texto:")
@@ -80,12 +103,50 @@ if st.button("Enviar mensagem"):
         st.warning("Por favor, insira um texto.")
     elif st.session_state.client_socket:
         try:
-            st.session_state.client_socket.send(text.encode('ascii'))
-            st.success("Mensagem enviada com sucesso!")
+            if 'bits' not in st.session_state:
+                st.session_state.bits = ''.join(text_to_bits(text))
+            
+            bits = st.session_state.bits
+
+            if 'modulation_scheme' in st.session_state:
+                modulation_scheme = st.session_state.modulation_scheme
+
+                # Initialize variables only when needed
+                freq = 1
+                t = np.linspace(0, len(bits), len(bits) * 100)
+                clock = 0.5 * (1 + np.sign(np.sin(2 * np.pi * freq * t)))
+                carrier_freq = freq
+                carrier = np.sin(2 * np.pi * carrier_freq * t)
+
+                # Ensure signal is defined within these blocks
+                if modulation_scheme == "NRZ-Polar":
+                    signal = nrz_polar(bits)
+                elif modulation_scheme == "Manchester":
+                    signal = manchester(bits, clock)
+                elif modulation_scheme == "Bipolar":
+                    signal = bipolar(bits)
+                elif modulation_scheme == "ASK":
+                    signal = ask_modulation(nrz_polar(bits), carrier)
+                elif modulation_scheme == "FSK":
+                    signal = fsk_modulation(nrz_polar(bits), t, carrier_freq)
+                else:
+                    st.warning("Esquema de modulação não reconhecido.")
+                    signal = None
+
+                # Ensure the signal is defined before sending it
+                if signal is not None:
+                    signal_str = signal_to_string(signal)
+                    st.session_state.client_socket.send(signal_str.encode('ascii'))
+                    st.success("Mensagem enviada com sucesso!")
+                else:
+                    st.error("Falha ao modular o sinal.")
+            else:
+                st.warning("Por favor, selecione um esquema de modulação antes de enviar a mensagem.")
         except Exception as e:
             st.error(f"Erro ao enviar a mensagem para o servidor: {e}")
     else:
         st.error("Você deve se conectar ao servidor primeiro.")
+
 
 if text:
     ascii_bits = text_to_bits(text)
@@ -94,13 +155,26 @@ if text:
         st.write(f"{text[i]}: {char_bits}")
 
     bits = ''.join(ascii_bits)
-
+    st.session_state.bits = bits
+    
     modulation_type = st.selectbox("Escolha o tipo de modulação", ["Digital", "Portadora"])
 
     if modulation_type == "Digital":
-        modulation_scheme = st.selectbox("Escolha a técnica de modulação digital", ["NRZ-Polar", "Manchester", "Bipolar"])
+        modulation_scheme = st.selectbox(
+            "Escolha a técnica de modulação digital", 
+            ["NRZ-Polar", "Manchester", "Bipolar"],
+            key="digital_modulation",
+            on_change=set_modulation_scheme,  # Call the function to set the scheme
+            args=(st.session_state.digital_modulation,)  # Pass the selected scheme
+        )
     else:
-        modulation_scheme = st.selectbox("Escolha a técnica de modulação por portadora", ["ASK", "FSK"])
+        modulation_scheme = st.selectbox(
+            "Escolha a técnica de modulação por portadora", 
+            ["ASK", "FSK"],
+            key="carrier_modulation",
+            on_change=set_modulation_scheme,  # Call the function to set the scheme
+            args=(st.session_state.carrier_modulation,)  # Pass the selected scheme
+        )
 
     if st.button("Modular"):
         if bits:
@@ -125,11 +199,30 @@ if text:
 
             if modulation_type == "Digital":
                 if modulation_scheme == "NRZ-Polar":
+                    # Generate and expand signal
                     signal = nrz_polar(bits)
                     signal_expanded = np.repeat(signal, 100)
+
+                    # Plot the signal
                     axs[2].plot(t, signal_expanded, drawstyle='steps-pre')
                     axs[2].set(title="NRZ-Polar Modulation", xlabel="Tempo", ylabel="Amplitude")
                     axs[2].legend(["NRZ-Polar"])
+
+                    # Convert signal to string or bytes for sending
+                    signal_str = signal_to_string(signal)
+                    st.write(f"signal_str: {signal_str}")
+                    # Ensure client socket is connected before sending
+                    if st.session_state.client_socket:
+                        try:
+                            st.session_state.client_socket.send(signal_str.encode('ascii'))
+                            st.success("Mensagem enviada com sucesso!")
+                        except Exception as e:
+                            st.error(f"Erro ao enviar a mensagem para o servidor: {e}")
+
+                    # Display debugging info
+                    st.write(f"Bits: {bits}")
+                    st.write(f"Selected Modulation Scheme: {modulation_scheme}")
+                    st.write(f"Signal: {signal}")
 
                 elif modulation_scheme == "Manchester":
                     manchester_signal = manchester(bits, clock)
