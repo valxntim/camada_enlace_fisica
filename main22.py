@@ -2,7 +2,7 @@ import socket
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
-
+import threading
 
 # Initialize session state variables
 if 'digital_modulation' not in st.session_state:
@@ -71,6 +71,18 @@ def fsk_modulation(nrz_signal, t, carrier_freq):
     freq_low = carrier_freq
     return np.where(nrz_expanded == 1, np.sin(2 * np.pi * freq_high * t), np.sin(2 * np.pi * freq_low * t))
 
+# Function to listen for incoming messages from the server
+def listen_for_messages():
+    while True:
+        try:
+            message = st.session_state.client_socket.recv(1024).decode('ascii')
+            if message:
+                st.session_state.received_messages.append(message)
+                st.experimental_rerun()
+        except Exception as e:
+            print(f"Error receiving message: {e}")
+            break
+
 # Streamlit UI setup
 st.title("Modulação e Envio de Mensagens")
 
@@ -84,6 +96,10 @@ if st.button("Conectar ao servidor"):
             st.session_state.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             st.session_state.client_socket.connect(('192.168.15.166', 5060))  # Replace with your server IP and port if needed
             st.success("Conectado ao servidor com sucesso!")
+
+            # Start a thread to listen for incoming messages
+            st.session_state.received_messages = []
+            threading.Thread(target=listen_for_messages, daemon=True).start()
         except Exception as e:
             st.error(f"Erro ao conectar ao servidor: {e}")
 
@@ -147,7 +163,11 @@ if st.button("Enviar mensagem"):
             st.error(f"Erro ao enviar a mensagem para o servidor: {e}")
     else:
         st.error("Você deve se conectar ao servidor primeiro.")
-
+# Display received messages
+if 'received_messages' in st.session_state:
+    st.subheader("Mensagens Recebidas:")
+    for msg in st.session_state.received_messages:
+        st.write(msg)
 
 if text:
     ascii_bits = text_to_bits(text)
