@@ -3,33 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 
-# Initialize session state variables
-if 'digital_modulation' not in st.session_state:
-    st.session_state.digital_modulation = None
-
-if 'carrier_modulation' not in st.session_state:
-    st.session_state.carrier_modulation = None
-
-if 'modulation_scheme' not in st.session_state:
-    st.session_state.modulation_scheme = None
-
-if 'bits' not in st.session_state:
-    st.session_state.bits = None
-
-if 'client_socket' not in st.session_state:
-    st.session_state.client_socket = None
-
-# Convert the signal to a string
-def signal_to_string(signal):
-    return ','.join(map(str, signal))
-
-# Convert the signal to bytes
-def signal_to_bytes(signal):
-    return bytes(signal)
-
-# Function to store modulation scheme
-def set_modulation_scheme(selected_scheme):
-    st.session_state.modulation_scheme = selected_scheme
 
 # Function to convert text to ASCII bits
 def text_to_bits(text):
