@@ -1,6 +1,8 @@
 import streamlit as st
 import zlib
 
+
+
 # Inserção de bytes
 def byte_stuffing(bits):
     FLAG = "01111110"
@@ -86,20 +88,32 @@ def bitlist_to_bytes(bitlist):
     return bytes(byte_array)
 
 
-def calculate_crc32(data):
-    """Calcula o CRC-32 dos dados."""
-    return zlib.crc32(data) & 0xFFFFFFFF
+def CRC32(mensagem):
+    # Calcula o CRC32 da mensagem
+    crc32 = zlib.crc32(mensagem.encode())
+    
+    # Adiciona o CRC32 ao final da mensagem (em hexadecimal)
+    mensagem_com_crc = f"{mensagem}{crc32:08x}"
+    
+    return mensagem_com_crc
 
-def add_crc32(data):
-    """Adiciona o CRC-32 aos dados."""
-    crc = calculate_crc32(data)
-    return data + crc.to_bytes(4, byteorder='big')
-
-def verify_crc32(data_with_crc):
-    """Verifica o CRC-32 dos dados."""
-    data = data_with_crc[:-4]
-    expected_crc = int.from_bytes(data_with_crc[-4:], byteorder='big')
-    return calculate_crc32(data) == expected_crc
+# Função para verificar o CRC-32
+def verifica_CRC32(mensagem_com_crc):
+    # Separa a mensagem e o CRC32 da mensagem recebida
+    mensagem_separada = mensagem_com_crc[:-8]
+    crc32_reduzido = mensagem_com_crc[-8:]
+    
+    # Calcula o CRC32 da mensagem (sem o valor de CRC32)
+    crc32_calculado = zlib.crc32(mensagem_separada.encode())
+    
+    # Converte o CRC32 calculado para hexadecimal e compara com o CRC32 recebido
+    crc32_calculado_hex = f"{crc32_calculado:08x}"
+    
+    # Verifica se o CRC32 calculado coincide com o CRC32 recebido
+    if crc32_calculado_hex == crc32_reduzido:
+        return 'Mensagem sem erro'  # Mensagem está correta
+    else:
+        return 'Mensagem com erro'  # Mensagem está corrompida
 
 def calculate_parity_bit(byte):
     """Calcula o bit de paridade par para um byte."""
@@ -189,22 +203,18 @@ method = st.selectbox("Choose a method", ["Inserção de Bytes", "Contagem de Ca
 
 if st.button("Process"):
     try:
-        if method == "Parity":
+        if method == "Paridade":
             data_bytes = bin_to_bytes(byte_input)
             data_with_parity = add_parity_bits(data_bytes)
             st.write("Data with Parity Bits (binary):", data_with_parity)
             is_valid = verify_parity_bits(data_with_parity)
             st.write("Parity Check Result:", "Valid" if is_valid else "Invalid")
-            print("Data with Parity Bits (binary):", data_with_parity)
-            print("Parity Check Result:", "Valid" if is_valid else "Invalid")
             
         elif method == "Inserção de Bytes":
             stuffed = byte_stuffing(byte_input)
             unstuffed = byte_unstuffing(stuffed)
             st.write("Stuffed Data (binary):", stuffed)
             st.write("Unstuffed Data (binary):", unstuffed)
-            print("Stuffed Data (binary):", stuffed)
-            print("Unstuffed Data (binary):", unstuffed)
             
         elif method == "Contagem de Caracteres":
             data_bytes = bin_to_bytes(byte_input)
@@ -212,16 +222,17 @@ if st.button("Process"):
             decoded_data = character_count_decoding(encoded_frame)
             st.write("Encoded Frame (binary):", bytes_to_bin(encoded_frame))
             st.write("Decoded Data (binary):", bytes_to_bin(decoded_data))
-            print("Encoded Frame (binary):", bytes_to_bin(encoded_frame))
-            print("Decoded Data (binary):", bytes_to_bin(decoded_data))
             
         elif method == "CRC-32":
             data_bytes = bin_to_bytes(byte_input)
-            data_with_crc = add_crc32(data_bytes)
-            st.write("Data with CRC-32 (binary):", bytes_to_bin(data_with_crc))
-            is_valid = verify_crc32(data_with_crc)
-            st.write("CRC Check Result:", "Valid" if is_valid else "Invalid")
-            print("Data with CRC-32 (binary):", bytes_to_bin(data_with_crc))
+            # Convert bytes to string for CRC calculation
+            data_str = bytes_to_bin(data_bytes)
+            data_with_crc = CRC32(data_str)
+            st.write("Data with CRC-32 (binary):", data_with_crc)
+            
+            # Check CRC validity
+            check_result = verifica_CRC32(data_with_crc)
+            st.write("CRC Check Result:", check_result)
             
         elif method == "Hamming":
             data_bytes = bin_to_bytes(byte_input)
@@ -236,10 +247,6 @@ if st.button("Process"):
             
             st.write("Decoded Data (binary):", decoded_data_bin_str)
             st.write("Hamming Check Result:", "Valid" if original_data_bin == decoded_data_bin_str else "Invalid")
-            print("Encoded Data with Hamming (binary):", bytes_to_bin(encoded_data))
-            print("Decoded Data (binary):", decoded_data_bin_str)
-            print("Hamming Check Result:", "Valid" if original_data_bin == decoded_data_bin_str else "Invalid")
                        
     except Exception as e:
         st.error(f"An error occurred: {e}")
-        print(f"An error occurred: {e}")
