@@ -1,8 +1,6 @@
 import streamlit as st
 import zlib
 
-
-
 # Inserção de bytes
 def byte_stuffing(bits):
     FLAG = "01111110"
@@ -87,9 +85,6 @@ def bitlist_to_bytes(bitlist):
         byte_array.append(byte)
     return bytes(byte_array)
 
-
-
-
 def CRC32(mensagem):
     # Calcula o CRC32 da mensagem
     crc32 = zlib.crc32(mensagem.encode())
@@ -138,61 +133,56 @@ def verify_parity_bits(data_with_parity):
             return False
     return True
 
-def hamming_encode(data):
-    print("TIPO do enconde :" , type(data))
-    print("DATA do encode :" ,data)
-    bits = list(''.join(format(byte, '08b') for byte in data))
-    tam = len(bits)
-    paridade_positions = [2**i for i in range(len(bits).bit_length())]
+def hamming_encode(d2):
+    print(d2 , type(d2))
+    data = bytes_to_bitlist(d2)
+    tam = len(data)
+    multiplo = [1]
+    while tam > multiplo[-1]:
+        multiplo.append(multiplo[-1]*2)
+        
+    # Inserindo bits de paridade nas posições 1, 2, 4, 8, ...
+    for i in multiplo:
+        data.insert(i-1, 0)  # Inicialmente, os bits de paridade são 0
 
-    # Inserir bits de paridade nas posições apropriadas
-    for pos in reversed(paridade_positions):
-        bits.insert(pos - 1, '0')  # Inicialmente, os bits de paridade são 0
-
-    # Calcula os valores dos bits de paridade
-    for pos in paridade_positions:
+    # Calculando os valores corretos para os bits de paridade
+    for i in multiplo:
         paridade = 0
-        for i in range(1, len(bits) + 1):
-            if i & pos:
-                paridade ^= int(bits[i - 1])
-        bits[pos - 1] = str(paridade)
+        for j in range(i, len(data) + 1):
+            # Verifica se o bit está na posição correta para ser incluído no cálculo
+            if j & i:
+                paridade ^= data[j-1]
+        data[i-1] = paridade 
+    
+    print("data:",data)     # Atualiza o bit de paridade com o valor calculado
+    return data
 
-    # Converte a lista de bits de volta para bytes
-    bit_string = ''.join(bits)
-    return bin_to_bytes(bit_string)
 
 def hamming_decode(data):
-    # bytes - > lista
-    #lista - > string
-    #string - > bits
-    data = bytes_to_bitlist(data)
-    print("TIPO :" , type(data))
-    print("DATA :" ,data)
-    bits = list(bytes_to_bin(data))
-    tam = len(bits)
-    paridade_positions = [2**i for i in range(len(bits).bit_length())]
+    
+    tam = len(data)
+    multiplo = [1]
+    while multiplo[-1] < tam:
+        multiplo.append(multiplo[-1]*2)
 
+    # Verificando e corrigindo os bits de paridade
     erro_posicao = 0
-    for pos in paridade_positions:
+    for i in multiplo:
         paridade = 0
-        for i in range(1, len(bits) + 1):
-            if i & pos:
-                paridade ^= int(bits[i - 1])
+        for j in range(i, tam + 1):
+            if j & i:
+                paridade ^= data[j-1]
         if paridade != 0:
-            erro_posicao += pos
+            erro_posicao += i
 
     if erro_posicao > 0:
         print(f"Erro detectado na posição {erro_posicao}. Corrigindo...")
-        bits[erro_posicao - 1] = '0' if bits[erro_posicao - 1] == '1' else '1'  # Corrige o bit com erro
+        data[erro_posicao-1] ^= 1  # Corrige o bit com erro
 
-    # Remove os bits de paridade para recuperar a mensagem original
-    mensagem_original = [bits[i - 1] for i in range(1, tam + 1) if i not in paridade_positions]
-    
-    # Converte a lista de bits de volta para bytes
-    mensagem_original = bitlist_to_string(mensagem_original)
-    print("Converteu pra string?" , type(mensagem_original))
-    bit_string = ''.join(mensagem_original)
-    return bin_to_bytes(bit_string)
+    # Removendo os bits de paridade para recuperar a mensagem original
+    mensagem_original = [data[i-1] for i in range(1, tam+1) if i not in multiplo]
+    print("mensagem_original:",mensagem_original)
+    return mensagem_original
 
 # Streamlit UI
 st.title('Byte Processing Tool')
@@ -239,16 +229,19 @@ if st.button("Process"):
         elif method == "Hamming":
             data_bytes = bin_to_bytes(byte_input)
             encoded_data = hamming_encode(data_bytes)
-            st.write("Encoded Data with Hamming (binary):", bytes_to_bin(encoded_data))
+            st.write("Encoded Data with Hamming (binary):", bitlist_to_bitstring(encoded_data))
             
             decoded_data = hamming_decode(encoded_data)
-            decoded_data_bin_str = ''.join(format(byte, '08b') for byte in decoded_data)
+            decoded_data_bin_str = bitlist_to_string(decoded_data)
             
             # Convert original data to binary string for comparison
             original_data_bin = ''.join(format(byte, '08b') for byte in data_bytes)
             
             st.write("Decoded Data (binary):", decoded_data_bin_str)
             st.write("Hamming Check Result:", "Valid" if original_data_bin == decoded_data_bin_str else "Invalid")
+            print("Encoded Data with Hamming (binary):", bytes_to_bin(encoded_data))
+            print("Decoded Data (binary):", decoded_data_bin_str)
+            print("Hamming Check Result:", "Valid" if original_data_bin == decoded_data_bin_str else "Invalid")
                        
     except Exception as e:
         st.error(f"An error occurred: {e}")
