@@ -1,9 +1,16 @@
 import streamlit as st
 import zlib
 
+def text_to_bits(mensagem):
+    # Verifica se a mensagem é uma sequência de bits (0s e 1s) contínua
+    if all(bit in '01' for bit in mensagem):
+        return mensagem
+    else:
+        # Converte cada caractere do texto em sua representação binária de 8 bits
+        bits = ''.join(format(ord(char), '08b') for char in mensagem)
+        return bits
 
 
-# Inserção de bytes
 def byte_stuffing(bits):
     FLAG = "01111110"
     stuffed_bits = ""
@@ -87,7 +94,6 @@ def bitlist_to_bytes(bitlist):
         byte_array.append(byte)
     return bytes(byte_array)
 
-
 def CRC32(mensagem):
     # Calcula o CRC32 da mensagem
     crc32 = zlib.crc32(mensagem.encode())
@@ -97,7 +103,6 @@ def CRC32(mensagem):
     
     return mensagem_com_crc
 
-# Função para verificar o CRC-32
 def verifica_CRC32(mensagem_com_crc):
     # Separa a mensagem e o CRC32 da mensagem recebida
     mensagem_separada = mensagem_com_crc[:-8]
@@ -115,29 +120,37 @@ def verifica_CRC32(mensagem_com_crc):
     else:
         return 'Mensagem com erro'  # Mensagem está corrompida
 
-def calculate_parity_bit(byte):
-    """Calcula o bit de paridade par para um byte."""
-    return '0' if bin(byte).count('1') % 2 == 0 else '1'
+def paridade_bit(mensagem):
+    count = 0
+    # Conta o número de bits 1 na mensagem
+    for bit in mensagem:
+        if bit == '1':
+            count += 1
+    
+    # Determina o bit de paridade
+    if count % 2 ==0:
+        bit_paridade = '0'
+    else:
+        bit_paridade = '1'
+    
+    # Adiciona o bit de paridade ao final da mensagem
+    return mensagem + bit_paridade
 
-def add_parity_bits(data):
-    """Adiciona o bit de paridade par a cada byte no dado."""
-    data_with_parity = ""
-    for byte in data:
-        # Adiciona o byte e o bit de paridade
-        data_with_parity += format(byte, '08b') + calculate_parity_bit(byte)
-    return data_with_parity
-
-def verify_parity_bits(data_with_parity):
-    """Verifica a integridade dos bits de paridade."""
-    for i in range(0, len(data_with_parity), 9):  # 8 bits de dados + 1 bit de paridade
-        byte = data_with_parity[i:i+8]
-        parity_bit = data_with_parity[i+8]
-        if parity_bit != calculate_parity_bit(int(byte, 2)):
-            return False
-    return True
+def verifica_paridade(mensagem):
+    x= ''
+    contador= 0
+    paridade_bit = mensagem[-1]
+    for bit in mensagem[-1]:
+        if bit == '1':
+            contador += 1
+    if contador % 2 == int(paridade_bit):
+        x= 'Mensagem sem erro'
+    else:
+        x='Mensagem com erro'
+    return x
 
 def hamming_encode(data):
-    print("TIPO do enconde :" , type(data))
+    print("TIPO do encode :" , type(data))
     print("DATA do encode :" ,data)
     bits = list(''.join(format(byte, '08b') for byte in data))
     tam = len(bits)
@@ -160,9 +173,9 @@ def hamming_encode(data):
     return bin_to_bytes(bit_string)
 
 def hamming_decode(data):
-    # bytes - > lista
-    #lista - > string
-    #string - > bits
+    # bytes -> lista
+    # lista -> string
+    # string -> bits
     data = bytes_to_bitlist(data)
     print("TIPO :" , type(data))
     print("DATA :" ,data)
@@ -196,35 +209,38 @@ def hamming_decode(data):
 st.title('Byte Processing Tool')
 
 # Entrada de texto para os bytes (em binário)
-byte_input = st.text_input("Enter bytes (binary, e.g., 01001000011001010110110001101100)")
+byte_input = st.text_input("Enter text")
 
 # Escolha do método de codificação
 method = st.selectbox("Choose a method", ["Inserção de Bytes", "Contagem de Caracteres", "Paridade", "CRC-32", "Hamming"])
 
 if st.button("Process"):
     try:
+        # Converte a entrada de texto em bits
+        bits_input = text_to_bits(byte_input)
+
         if method == "Paridade":
-            data_bytes = bin_to_bytes(byte_input)
-            data_with_parity = add_parity_bits(data_bytes)
-            st.write("Data with Parity Bits (binary):", data_with_parity)
-            is_valid = verify_parity_bits(data_with_parity)
-            st.write("Parity Check Result:", "Valid" if is_valid else "Invalid")
+            # Usa a função paridade_bit
+            mensagem_com_paridade = paridade_bit(bits_input)
+            st.write("Mensagem com bit de paridade (binário):", mensagem_com_paridade)
+            resultado_verificacao = verifica_paridade(mensagem_com_paridade)
+            st.write("Resultado da verificação de paridade:", resultado_verificacao)
             
         elif method == "Inserção de Bytes":
-            stuffed = byte_stuffing(byte_input)
+            stuffed = byte_stuffing(bits_input)
             unstuffed = byte_unstuffing(stuffed)
             st.write("Stuffed Data (binary):", stuffed)
             st.write("Unstuffed Data (binary):", unstuffed)
             
         elif method == "Contagem de Caracteres":
-            data_bytes = bin_to_bytes(byte_input)
+            data_bytes = bin_to_bytes(bits_input)
             encoded_frame = character_count_encoding(data_bytes)
             decoded_data = character_count_decoding(encoded_frame)
             st.write("Encoded Frame (binary):", bytes_to_bin(encoded_frame))
             st.write("Decoded Data (binary):", bytes_to_bin(decoded_data))
             
         elif method == "CRC-32":
-            data_bytes = bin_to_bytes(byte_input)
+            data_bytes = bin_to_bytes(bits_input)
             # Convert bytes to string for CRC calculation
             data_str = bytes_to_bin(data_bytes)
             data_with_crc = CRC32(data_str)
@@ -235,7 +251,7 @@ if st.button("Process"):
             st.write("CRC Check Result:", check_result)
             
         elif method == "Hamming":
-            data_bytes = bin_to_bytes(byte_input)
+            data_bytes = bin_to_bytes(bits_input)
             encoded_data = hamming_encode(data_bytes)
             st.write("Encoded Data with Hamming (binary):", bytes_to_bin(encoded_data))
             
