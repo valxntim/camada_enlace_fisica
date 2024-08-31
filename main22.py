@@ -20,6 +20,9 @@ if 'bits' not in st.session_state:
 if 'client_socket' not in st.session_state:
     st.session_state.client_socket = None
 
+def signal_to_string(signal):
+    return ','.join(str(bit) for bit in signal)
+
 # Convert the signal to a string
 def signal_to_string(signal):
     return ','.join(map(str, signal))
@@ -71,6 +74,11 @@ def fsk_modulation(nrz_signal, t, carrier_freq):
     freq_low = carrier_freq
     return np.where(nrz_expanded == 1, np.sin(2 * np.pi * freq_high * t), np.sin(2 * np.pi * freq_low * t))
 
+def downsample(signal, factor):
+    return signal[::factor]
+
+
+
 # Function to listen for incoming messages from the server
 def listen_for_messages():
     while True:
@@ -114,60 +122,6 @@ if st.button("Enviar apelido"):
             st.error(f"Erro ao enviar o apelido para o servidor: {e}")
     else:
         st.error("Você deve se conectar ao servidor primeiro.")
-
-if st.button("Enviar mensagem"):
-    if not text:
-        st.warning("Por favor, insira um texto.")
-    elif st.session_state.client_socket:
-        try:
-            if 'bits' not in st.session_state:
-                st.session_state.bits = ''.join(text_to_bits(text))
-            
-            bits = st.session_state.bits
-
-            if 'modulation_scheme' in st.session_state:
-                modulation_scheme = st.session_state.modulation_scheme
-
-                # Initialize variables only when needed
-                freq = 1
-                t = np.linspace(0, len(bits), len(bits) * 100)
-                clock = 0.5 * (1 + np.sign(np.sin(2 * np.pi * freq * t)))
-                carrier_freq = freq
-                carrier = np.sin(2 * np.pi * carrier_freq * t)
-
-                # Ensure signal is defined within these blocks
-                if modulation_scheme == "NRZ-Polar":
-                    signal = nrz_polar(bits)
-                elif modulation_scheme == "Manchester":
-                    signal = manchester(bits, clock)
-                elif modulation_scheme == "Bipolar":
-                    signal = bipolar(bits)
-                elif modulation_scheme == "ASK":
-                    signal = ask_modulation(nrz_polar(bits), carrier)
-                elif modulation_scheme == "FSK":
-                    signal = fsk_modulation(nrz_polar(bits), t, carrier_freq)
-                else:
-                    st.warning("Esquema de modulação não reconhecido.")
-                    signal = None
-
-                # Ensure the signal is defined before sending it
-                if signal is not None:
-                    signal_str = signal_to_string(signal)
-                    st.session_state.client_socket.send(signal_str.encode('ascii'))
-                    st.success("Mensagem enviada com sucesso!")
-                else:
-                    st.error("Falha ao modular o sinal.")
-            else:
-                st.warning("Por favor, selecione um esquema de modulação antes de enviar a mensagem.")
-        except Exception as e:
-            st.error(f"Erro ao enviar a mensagem para o servidor: {e}")
-    else:
-        st.error("Você deve se conectar ao servidor primeiro.")
-# Display received messages
-if 'received_messages' in st.session_state:
-    st.subheader("Mensagens Recebidas:")
-    for msg in st.session_state.received_messages:
-        st.write(msg)
 
 if text:
     ascii_bits = text_to_bits(text)
@@ -247,9 +201,29 @@ if text:
 
                 elif modulation_scheme == "Manchester":
                     manchester_signal = manchester(bits, clock)
+
+                    manchester_signall = manchester_signal[1:]  # Removes the first item
+                    # Example: Downsample the signal by a factor of 100
+                    downsampled_signal = downsample(manchester_signall, 100)
                     axs[2].plot(t, manchester_signal, drawstyle='steps-pre')
                     axs[2].set(title="Manchester Encoding", xlabel="Tempo", ylabel="Amplitude")
                     axs[2].legend(["Manchester"])
+
+                    # Convert signal to string or bytes for sending
+                    signal_str = signal_to_string(downsampled_signal)
+                    st.write(f"signal_str: {signal_str}")
+                    # Ensure client socket is connected before sending
+                    if st.session_state.client_socket:
+                        try:
+                            st.session_state.client_socket.send(signal_str.encode('ascii'))
+                            st.success("Mensagem enviada com sucesso!")
+                        except Exception as e:
+                            st.error(f"Erro ao enviar a mensagem para o servidor: {e}")
+
+                    # Display debugging info
+                    st.write(f"Bits: {bits}")
+                    st.write(f"Selected Modulation Scheme: {modulation_scheme}")
+                    st.write(f"Signal: {manchester_signal}")
 
                 elif modulation_scheme == "Bipolar":
                     signal_bipolar = bipolar(bits)
@@ -258,20 +232,48 @@ if text:
                     axs[2].set(title="Bipolar Modulation", xlabel="Tempo", ylabel="Amplitude")
                     axs[2].legend(["Bipolar"])
 
-            else:
-                signal = nrz_polar(bits)
+                    # Convert signal to string or bytes for sending
+                    signal_str = signal_to_string(signal_bipolar)
+                    st.write(f"signal_str: {signal_str}")
+                    # Ensure client socket is connected before sending
+                    if st.session_state.client_socket:
+                        try:
+                            st.session_state.client_socket.send(signal_str.encode('ascii'))
+                            st.success("Mensagem enviada com sucesso!")
+                        except Exception as e:
+                            st.error(f"Erro ao enviar a mensagem para o servidor: {e}")
 
+                    # Display debugging info
+                    st.write(f"Bits: {bits}")
+                    st.write(f"Selected Modulation Scheme: {modulation_scheme}")
+                    st.write(f"Signal: {signal_bipolar}")
+
+            elif modulation_type == "Portadora":
                 if modulation_scheme == "ASK":
-                    ask_signal = ask_modulation(signal, carrier)
-                    axs[2].plot(t, ask_signal, drawstyle='steps-pre')
-                    axs[2].set(title="ASK Modulated Signal", xlabel="Tempo", ylabel="Amplitude")
+                    nrz_signal = nrz_polar(bits)
+                    signal_ask = ask_modulation(nrz_signal, carrier)
+                    axs[2].plot(t, signal_ask, drawstyle='steps-pre')
+                    axs[2].set(title="ASK Modulation", xlabel="Tempo", ylabel="Amplitude")
                     axs[2].legend(["ASK"])
 
+                    # Display debugging info
+                    st.write(f"Bits: {bits}")
+                    st.write(f"Selected Modulation Scheme: {modulation_scheme}")
+                    st.write(f"Signal: {signal_ask}")
+
                 elif modulation_scheme == "FSK":
-                    fsk_signal = fsk_modulation(signal, t, carrier_freq)
-                    axs[2].plot(t, fsk_signal, drawstyle='steps-pre')
-                    axs[2].set(title="FSK Modulated Signal", xlabel="Tempo", ylabel="Amplitude")
+                    nrz_signal = nrz_polar(bits)
+                    signal_fsk = fsk_modulation(nrz_signal, t, carrier_freq)
+                    axs[2].plot(t, signal_fsk, drawstyle='steps-pre')
+                    axs[2].set(title="FSK Modulation", xlabel="Tempo", ylabel="Amplitude")
                     axs[2].legend(["FSK"])
+
+                    # Display debugging info
+                    st.write(f"Bits: {bits}")
+                    #st.write(f"Selected Modulation Scheme: {modulation_scheme}")
+                    st.write(f"Signal: {signal_fsk}")
 
             axs[2].grid(True)
             st.pyplot(fig)
+        else:
+            st.warning("Por favor, insira um texto.")
