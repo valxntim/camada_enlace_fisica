@@ -140,25 +140,17 @@ def verifica_paridade(mensagem):
     x= ''
     contador= 0
     paridade_bit = mensagem[-1]
-    for bit in mensagem[-1]:
+    for bit in mensagem[:-1]:
+        print(mensagem[:-1])
         if bit == '1':
             contador += 1
+    
     if contador % 2 == int(paridade_bit):
         x= 'Mensagem sem erro'
     else:
         x='Mensagem com erro'
     return x
 
-def hamming_encode(data):
-    print("TIPO do encode :" , type(data))
-    print("DATA do encode :" ,data)
-    bits = list(''.join(format(byte, '08b') for byte in data))
-    tam = len(bits)
-    paridade_positions = [2**i for i in range(len(bits).bit_length())]
-
-    # Inserir bits de paridade nas posições apropriadas
-    for pos in reversed(paridade_positions):
-        bits.insert(pos - 1, '0')  # Inicialmente, os bits de paridade são 0
 def hamming_encode(d2):
     print(d2 , type(d2))
     data = bytes_to_bitlist(d2)
@@ -192,16 +184,6 @@ def hamming_decode(data):
         multiplo.append(multiplo[-1]*2)
 
     # Verificando e corrigindo os bits de paridade
-    # bytes -> lista
-    # lista -> string
-    # string -> bits
-    data = bytes_to_bitlist(data)
-    print("TIPO :" , type(data))
-    print("DATA :" ,data)
-    bits = list(bytes_to_bin(data))
-    tam = len(bits)
-    paridade_positions = [2**i for i in range(len(bits).bit_length())]
-
     erro_posicao = 0
     for i in multiplo:
         paridade = 0
@@ -266,9 +248,9 @@ if st.button("Process"):
             st.write("CRC Check Result:", check_result)
             
         elif method == "Hamming":
-            data_bytes = bin_to_bytes(bits_input)
+            data_bytes = bin_to_bytes(byte_input)
             encoded_data = hamming_encode(data_bytes)
-            st.write("Encoded Data with Hamming (binary):", bitlist_to_bitstring(encoded_data))
+            st.write("Encoded Data with Hamming (binary):", bitlist_to_string(encoded_data))
             
             decoded_data = hamming_decode(encoded_data)
             decoded_data_bin_str = bitlist_to_string(decoded_data)
