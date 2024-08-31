@@ -88,13 +88,15 @@ def bitlist_to_bytes(bitlist):
     return bytes(byte_array)
 
 
+
+
 def CRC32(mensagem):
     # Calcula o CRC32 da mensagem
     crc32 = zlib.crc32(mensagem.encode())
-    
+    print(crc32)
     # Adiciona o CRC32 ao final da mensagem (em hexadecimal)
     mensagem_com_crc = f"{mensagem}{crc32:08x}"
-    
+    print(mensagem_com_crc)
     return mensagem_com_crc
 
 # Função para verificar o CRC-32
@@ -105,7 +107,7 @@ def verifica_CRC32(mensagem_com_crc):
     
     # Calcula o CRC32 da mensagem (sem o valor de CRC32)
     crc32_calculado = zlib.crc32(mensagem_separada.encode())
-    
+    print(crc32_calculado)
     # Converte o CRC32 calculado para hexadecimal e compara com o CRC32 recebido
     crc32_calculado_hex = f"{crc32_calculado:08x}"
     
