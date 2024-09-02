@@ -23,14 +23,14 @@ Iniciar o Servidor:
 
 O script server.py deve ser inicializado em um terminal separado. Ele é responsável por gerenciar as conexões dos clientes e processar as mensagens.
 
-bash
-Copy code
+
+
 python server.py
 Executar a Interface Streamlit:
 
 Após iniciar o servidor, você pode rodar a interface do usuário utilizando Streamlit. Abra um segundo terminal e execute o seguinte comando:
 
-bash
+
 Copy code
 streamlit run interface.py
 Isso iniciará a aplicação Streamlit, onde você poderá interagir com o simulador e visualizar os resultados da modulação e dos protocolos de enlace.
