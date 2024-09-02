@@ -13,58 +13,58 @@ def text_to_bits(mensagem):
         return bits
 
 
-def byte_stuffing(bits):
+def inserçao_bytes(bits):
     FLAG = "01111110"
-    stuffed_bits = ""
-    consecutive_ones = 0
+    bits_inseridos = ""
+    uns_consecutivos = 0
 
     for bit in bits:
-        stuffed_bits += bit  # Adiciona o bit atual
+        bits_inseridos += bit  # Adiciona o bit atual
         if bit == '1':
-            consecutive_ones += 1
-            if consecutive_ones == 5:
-                stuffed_bits += '0'  # Insere o bit 0 após cinco 1s consecutivos
-                consecutive_ones = 0
+            uns_consecutivos += 1
+            if uns_consecutivos == 5:
+                bits_inseridos += '0'  # Insere o bit 0 após cinco 1s consecutivos
+                uns_consecutivos = 0
         else:
-            consecutive_ones = 0
+            uns_consecutivos = 0
 
     # Adiciona as FLAGS no início e no final
-    return FLAG + stuffed_bits + FLAG
+    return FLAG + bits_inseridos + FLAG
 
-def byte_unstuffing(stuffed_bits):
+def desinserçao_bytes(bits_inseridos):
     FLAG = "01111110"
-    unstuffed_bits = ""
-    consecutive_ones = 0
+    bits_desinseridos = ""
+    uns_consecutivos = 0
 
     # Remove as FLAGS no início e no final
-    stuffed_bits = stuffed_bits[len(FLAG):-len(FLAG)]
+    bits_inseridos = bits_inseridos[len(FLAG):-len(FLAG)]
 
     i = 0
-    while i < len(stuffed_bits):
-        bit = stuffed_bits[i]
+    while i < len(bits_inseridos):
+        bit = bits_inseridos[i]
 
-        if consecutive_ones == 5:
+        if uns_consecutivos == 5:
             if bit == '0':
-                consecutive_ones = 0
+                uns_consecutivos = 0
                 i += 1  # Pula o bit de stuffing (o 0 inserido)
                 continue
 
-        unstuffed_bits += bit
+        bits_desinseridos += bit
 
         if bit == '1':
-            consecutive_ones += 1
+            uns_consecutivos += 1
         else:
-            consecutive_ones = 0
+            uns_consecutivos = 0
 
         i += 1
 
-    return unstuffed_bits
+    return bits_desinseridos
 
-def character_count_encoding(data):
+def contador_de_caracteres_encoding(data):
     length = len(data) + 1
     return bytes([length]) + data
 
-def character_count_decoding(frame):
+def contador_de_caracteres_decoding(frame):
     length = frame[0]
     return frame[1:length]
 
@@ -182,7 +182,8 @@ def hamming_decode(data):
     multiplo = [1]
     while multiplo[-1] < tam:
         multiplo.append(multiplo[-1]*2)
-
+    # multiplo se torna [1, 2, 4, 8, 16, ...]
+        
     # Verificando e corrigindo os bits de paridade
     erro_posicao = 0
     for i in multiplo:
@@ -224,17 +225,17 @@ if st.button("Process"):
             st.write("Resultado da verificação de paridade:", resultado_verificacao)
             
         elif method == "Inserção de Bytes":
-            stuffed = byte_stuffing(bits_input)
-            unstuffed = byte_unstuffing(stuffed)
-            st.write("Stuffed Data (binary):", stuffed)
-            st.write("Unstuffed Data (binary):", unstuffed)
+            stuffed = inserçao_bytes(bits_input)
+            unstuffed = desinserçao_bytes(stuffed)
+            st.write("Mensagem (com flags) (binario):", stuffed)
+            st.write("Mensagem sem as flags (binario):", unstuffed)
             
         elif method == "Contagem de Caracteres":
             data_bytes = bin_to_bytes(bits_input)
-            encoded_frame = character_count_encoding(data_bytes)
-            decoded_data = character_count_decoding(encoded_frame)
-            st.write("Encoded Frame (binary):", bytes_to_bin(encoded_frame))
-            st.write("Decoded Data (binary):", bytes_to_bin(decoded_data))
+            encoded_frame = contador_de_caracteres_encoding(data_bytes)
+            decoded_data = contador_de_caracteres_decoding(encoded_frame)
+            st.write("Tamanho e Quadro :", bytes_to_bin(encoded_frame))
+            st.write("Quadro :", bytes_to_bin(decoded_data))
             
         elif method == "CRC-32":
             data_bytes = bin_to_bytes(bits_input)
@@ -250,19 +251,19 @@ if st.button("Process"):
         elif method == "Hamming":
             data_bytes = bin_to_bytes(byte_input)
             encoded_data = hamming_encode(data_bytes)
-            st.write("Encoded Data with Hamming (binary):", bitlist_to_string(encoded_data))
+            st.write("Codificado com Hamming :", bitlist_to_string(encoded_data))
             
             decoded_data = hamming_decode(encoded_data)
             decoded_data_bin_str = bitlist_to_string(decoded_data)
             
-            # Convert original data to binary string for comparison
+            # Converte os dados originais para string binaria 
             original_data_bin = ''.join(format(byte, '08b') for byte in data_bytes)
             
-            st.write("Decoded Data (binary):", decoded_data_bin_str)
-            st.write("Hamming Check Result:", "Valid" if original_data_bin == decoded_data_bin_str else "Invalid")
-            print("Encoded Data with Hamming (binary):", bytes_to_bin(encoded_data))
-            print("Decoded Data (binary):", decoded_data_bin_str)
-            print("Hamming Check Result:", "Valid" if original_data_bin == decoded_data_bin_str else "Invalid")
+            st.write("Dados decodificados :", decoded_data_bin_str)
+            st.write("Checando o Hamming :", "Valido" if original_data_bin == decoded_data_bin_str else "Invalido")
+            print("Codificado com Hamming :", bytes_to_bin(encoded_data))
+            print("Dados decodificados :", decoded_data_bin_str)
+            print("Checando o Hamming :", "Valido" if original_data_bin == decoded_data_bin_str else "Invalido")
                        
     except Exception as e:
         st.error(f"An error occurred: {e}")

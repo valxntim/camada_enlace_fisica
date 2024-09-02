@@ -1,5 +1,9 @@
 import socket
 import threading
+import numpy
+import signal
+import sys
+from camadafisica import bits_to_ascii, nrz_polar_demodulation
 
 PORT = 5060
 SERVER = socket.gethostbyname(socket.gethostname())  # Local host
@@ -12,6 +16,14 @@ server.listen()
 
 clients = []
 nicknames = []
+
+def signal_handler(sig, frame):
+    print("Server Stopping!")
+    server.close()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
 
 # Function to broadcast messages to all connected clients
 def broadcast(message):
@@ -26,7 +38,7 @@ def broadcast(message):
 def handle_client(client):
     try:
         # Receive and store the nickname
-        nickname = client.recv(1024).decode(FORMAT)
+        nickname = client.recv(1048576).decode(FORMAT)
         if not nickname:
             raise Exception("Failed to receive nickname")
         
@@ -42,14 +54,20 @@ def handle_client(client):
         while True:
             try:
                 # Receive and process the signal message
-                message = client.recv(1024).decode(FORMAT)
+                message = client.recv(1048576).decode(FORMAT)
                 if message:
+                    #demodula = bits_to_ascii(nrz_polar_demodulation(signal_reduzido))
                     # Convert the signal back to a list of integers
-                    signal = list(map(int, message.split(',')))
+                    signal = list(map(float, message.split(',')))
+                    demodula = bits_to_ascii(nrz_polar_demodulation(signal))
+                    #print(f"[{nickname}] Signal received: {signal}")
+                    #signal_str  = ",".join(map(str,signal))
+                    #client.send(signal_str.encode(FORMAT))
                     print(f"[{nickname}] Signal received: {signal}")
-                    
+
                     # Broadcast the signal message to all clients
                     broadcast(f"[{nickname}] Signal received: {signal}".encode(FORMAT))
+                    broadcast(f"[{nickname}] Demodulado ascii: {demodula}".encode(FORMAT))
                 else:
                     break
             except Exception as e:
@@ -71,7 +89,7 @@ def remove_client(client):
         print(f"[DISCONNECTED] {nickname} disconnected.")
 
 # Function to start the server and accept new connections
-def start():
+def receive():
     print(f"[STARTING] Server is starting on {SERVER}:{PORT}...")
     while True:
         client, address = server.accept()
@@ -82,4 +100,6 @@ def start():
         thread.start()
         print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
-start()
+receive()
+
+## FAZER O MESMO QUE ESTÁ NO NRZZ NAS OUTRAS FUNÇÕES, MANDAR MESAGEM PARA CLIENTE, DEMODULAR!
